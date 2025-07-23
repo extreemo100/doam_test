@@ -4,7 +4,21 @@
     <script src="mindar-image-three.prod.js"></script>
 
     <style>
-      html, body {position: relative; margin: 0; width: 100%; height: 100%; overflow: hidden;}
+      html, body {
+        position: relative; 
+        margin: 0; 
+        width: 100%; 
+        height: 100%; 
+        overflow: hidden;
+        /* Default background - replace 'your-background.jpg' with your image file name */
+        background-image: url('welcome.png');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        /* Fallback solid color if image doesn't load */
+        background-color: #1a1a1a;
+      }
       button, img {
         position: absolute;
         cursor: pointer;
@@ -25,34 +39,34 @@
         background-color: #444;
       }
       #lubricant-finder-img {
-        width: 290px; /* Adjust the width as needed */
-        height: auto; /* Maintain aspect ratio */
-        bottom: 10px; /* Position at the bottom */
+        width: 290px;
+        height: auto;
+        bottom: 10px;
         left: 50%;
         transform: translateX(-50%);
+        display: none;
       }
       #more-info-img {
-        width: 290px; /* Adjust the width as needed */
-        height: auto; /* Maintain aspect ratio */
-        bottom: 80px; /* Position above the Lubricant Finder button */
+        width: 290px;
+        height: auto;
+        bottom: 80px;
         left: 50%;
         transform: translateX(-50%);
+        display: none;
       }
-      /* Styles for the top-left images */
       .top-left {
         top: 20px;
         left: 0px;
-        width: 200px; /* Adjust the width as needed */
-        height: auto; /* Maintain aspect ratio */
-        display: none; /* Initially hidden */
+        width: 200px;
+        height: auto;
+        display: none;
       }
-      /* Styles for the top-right images */
       .top-right {
         top: 20px;
         right: 0px;
-        width: 200px; /* Adjust the width as needed */
-        height: auto; /* Maintain aspect ratio */
-        display: none; /* Initially hidden */
+        width: 200px;
+        height: auto;
+        display: none;
       }
       
       /* Video overlay styles */
@@ -102,6 +116,54 @@
       #close-video:hover {
         background-color: rgba(255, 255, 255, 1);
       }
+      
+      /* Back button styles */
+      #back-btn {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        padding: 10px 15px;
+        font-size: 16px;
+        color: #fff;
+        background-color: rgba(0, 0, 0, 0.8);
+        border: 2px solid #fff;
+        border-radius: 5px;
+        cursor: pointer;
+        z-index: 99999;
+        pointer-events: auto;
+        display: none;
+      }
+      
+      #back-btn:hover {
+        background-color: rgba(0, 0, 0, 1);
+        transform: scale(1.05);
+      }
+      
+      /* Start scanning button styles */
+      #start-scanning-btn {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        padding: 20px 40px;
+        font-size: 18px;
+        color: #fff;
+        background-color: #007bff;
+        /* Remove background image from button - it will inherit page background */
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+        cursor: pointer;
+        z-index: 10000;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        /* Add slight transparency to see background through button */
+        background: rgba(0, 123, 255, 0.8);
+        backdrop-filter: blur(5px);
+      }
+      
+      #start-scanning-btn:hover {
+        background-color: #0056b3;
+      }
     </style>
   </head>
   <body>
@@ -109,10 +171,21 @@
       import {loadGLTF} from "./loader.js";
       const THREE = window.MINDAR.IMAGE.THREE;
 
+      // Global variables
+      let mindarThree = null;
+      let isARActive = false;
+
       document.addEventListener('DOMContentLoaded', () => {
+        // Create start scanning button
+        const startScanningBtn = document.createElement("button");
+        startScanningBtn.id = "start-scanning-btn";
+        startScanningBtn.textContent = "Start Scanning";
+        startScanningBtn.addEventListener("click", startAR);
+        document.body.appendChild(startScanningBtn);
+
         // Create the Lubricant Finder image button
         const lubricantImage = document.createElement("img");
-        lubricantImage.src = "b6.webp"; // Replace with the path to your PNG image
+        lubricantImage.src = "b6.webp";
         lubricantImage.id = "lubricant-finder-img";
         lubricantImage.addEventListener("click", () => {
           window.location.href = "https://psopk.com/en/lubricants/lubricant-finder";
@@ -121,42 +194,50 @@
 
         // Create the More Information image button
         const moreInfoImage = document.createElement("img");
-        moreInfoImage.src = "b3.webp"; // Replace with the path to your green button PNG image
+        moreInfoImage.src = "b3.webp";
         moreInfoImage.id = "more-info-img";
         moreInfoImage.addEventListener("click", () => {
-          window.open('https://3d-book-viewer.vercel.app/?animation=13', '_blank'); // Open index.html with the 13th animation
+          window.open('https://3d-book-viewer.vercel.app/?animation=13', '_blank');
         });
         document.body.appendChild(moreInfoImage);
 
-        // Create the top-left images (stacked)
+        // Create back button - MODIFIED TO RELOAD PAGE
+        const backBtn = document.createElement("button");
+        backBtn.id = "back-btn";
+        backBtn.textContent = "← Back";
+        backBtn.addEventListener("click", () => {
+          window.location.reload();
+        });
+        document.body.appendChild(backBtn);
+
+        // Create corner buttons
         const topLeftImage1 = document.createElement("img");
-        topLeftImage1.src = "b1.webp"; // Replace with the path to your PNG image
+        topLeftImage1.src = "b1.webp";
         topLeftImage1.classList.add("top-left");
-        topLeftImage1.style.top = "10px"; // First image position
+        topLeftImage1.style.top = "10px";
         document.body.appendChild(topLeftImage1);
 
         const topLeftImage2 = document.createElement("img");
-        topLeftImage2.src = "b2.webp"; // Replace with the path to your PNG image
+        topLeftImage2.src = "b2.webp";
         topLeftImage2.classList.add("top-left");
-        topLeftImage2.style.top = "70px"; // Second image position (stacked below the first)
+        topLeftImage2.style.top = "70px";
         document.body.appendChild(topLeftImage2);
 
-        // Create the top-right images
         const topRightImage1 = document.createElement("img");
-        topRightImage1.src = "b4.webp"; // Replace with the path to your PNG image
+        topRightImage1.src = "b4.webp";
         topRightImage1.classList.add("top-right");
-        topRightImage1.style.top = "10px"; // First image position
+        topRightImage1.style.top = "10px";
         topRightImage1.addEventListener("click", () => {
-          showVideo("five_ruppee.mp4"); // Replace with your video URL
+          showVideo("https://www.w3schools.com/html/mov_bbb.mp4");
         });
         document.body.appendChild(topRightImage1);
 
         const topRightImage2 = document.createElement("img");
-        topRightImage2.src = "b5.webp"; // Replace with the path to your PNG image
+        topRightImage2.src = "b5.webp";
         topRightImage2.classList.add("top-right");
-        topRightImage2.style.top = "70px"; // Second image position (stacked below the first)
+        topRightImage2.style.top = "70px";
         topRightImage2.addEventListener("click", () => {
-          showVideo("https://www.w3schools.com/html/movie.mp4"); // Replace with your video URL
+          showVideo("https://www.w3schools.com/html/movie.mp4");
         });
         document.body.appendChild(topRightImage2);
 
@@ -202,51 +283,75 @@
           }
         });
 
-        const start = async() => {
-          const mindarThree = new window.MINDAR.IMAGE.MindARThree({
-            container: document.body,
-            imageTargetSrc: 'blaze_4t.mind',
-          });
-          const {renderer, scene, camera} = mindarThree;
+        // AR Functions
+        async function startAR() {
+          if (isARActive) return; // Prevent multiple instances
+          
+          isARActive = true;
+          
+          // Hide start button, show other buttons
+          startScanningBtn.style.display = "none";
+          lubricantImage.style.display = "block";
+          moreInfoImage.style.display = "block";
+          backBtn.style.display = "block";
 
-          const light = new THREE.HemisphereLight( 0xffffff, 0xbbbbff, 1 );
-          scene.add(light);
-
-          // Load the 3D model but don't add it to the scene (so it won't be visible)
-          const gltf = await loadGLTF('blaze_final_animated2.glb');
-          gltf.scene.scale.set(0.1,0.1,0.1);
-          gltf.scene.position.set(0, -0.4, 0);
-
-          const anchor = mindarThree.addAnchor(0);
-          // Don't add the 3D model to the anchor - this hides it
-          // anchor.group.add(gltf.scene); // This line is commented out
-
-          const mixer = new THREE.AnimationMixer(gltf.scene);
-          const action = mixer.clipAction(gltf.animations[0]);
-          action.play();
-
-          const clock = new THREE.Clock();
-
-          // Show top buttons when the target is found (and keep them visible)
-          anchor.onTargetFound = () => {
-            document.querySelectorAll('.top-left, .top-right').forEach((button) => {
-              button.style.display = 'block';
+          try {
+            // Create new MindAR instance
+            mindarThree = new window.MINDAR.IMAGE.MindARThree({
+              container: document.body,
+              imageTargetSrc: 'blaze_4t.mind',
             });
-          };
 
-          // Keep buttons visible even when target is lost
-          anchor.onTargetLost = () => {
-            // Buttons remain visible - no hiding logic
-          };
+            const {renderer, scene, camera} = mindarThree;
 
-          await mindarThree.start();
-          renderer.setAnimationLoop(() => {
-            const delta = clock.getDelta();
-            mixer.update(delta);
-            renderer.render(scene, camera);
-          });
-        };
-        start();
+            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+            scene.add(light);
+
+            // Load 3D model (but don't add to scene)
+            const gltf = await loadGLTF('blaze_final_animated2.glb');
+            gltf.scene.scale.set(0.1, 0.1, 0.1);
+            gltf.scene.position.set(0, -0.4, 0);
+
+            const anchor = mindarThree.addAnchor(0);
+            // Don't add the 3D model: anchor.group.add(gltf.scene);
+
+            const mixer = new THREE.AnimationMixer(gltf.scene);
+            const action = mixer.clipAction(gltf.animations[0]);
+            action.play();
+
+            const clock = new THREE.Clock();
+
+            // Show corner buttons when target found
+            anchor.onTargetFound = () => {
+              document.querySelectorAll('.top-left, .top-right').forEach((button) => {
+                button.style.display = 'block';
+              });
+            };
+
+            // Keep buttons visible when target lost
+            anchor.onTargetLost = () => {
+              // Buttons remain visible
+            };
+
+            await mindarThree.start();
+            
+            renderer.setAnimationLoop(() => {
+              const delta = clock.getDelta();
+              mixer.update(delta);
+              renderer.render(scene, camera);
+            });
+
+          } catch (error) {
+            console.error("AR initialization failed:", error);
+            // If AR fails, reload the page to reset state
+            window.location.reload();
+          }
+        }
+
+        // Note: stopAR function removed since we're using page reload instead
+
+        // Make function globally accessible
+        window.startAR = startAR;
       });
     </script>
   </body>
